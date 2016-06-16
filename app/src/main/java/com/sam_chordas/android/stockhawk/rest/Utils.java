@@ -5,6 +5,8 @@ import android.util.Log;
 import com.sam_chordas.android.stockhawk.data.QuoteColumns;
 import com.sam_chordas.android.stockhawk.data.QuoteProvider;
 import java.util.ArrayList;
+import java.util.Locale;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -18,7 +20,7 @@ public class Utils {
 
   public static boolean showPercent = true;
 
-  public static ArrayList quoteJsonToContentVals(String JSON){
+  public static ArrayList<ContentProviderOperation> quoteJsonToContentVals(String JSON){
     ArrayList<ContentProviderOperation> batchOperations = new ArrayList<>();
     JSONObject jsonObject = null;
     JSONArray resultsArray = null;
@@ -30,14 +32,20 @@ public class Utils {
         if (count == 1){
           jsonObject = jsonObject.getJSONObject("results")
               .getJSONObject("quote");
-          batchOperations.add(buildBatchOperation(jsonObject));
+          ContentProviderOperation op = buildBatchOperation(jsonObject);
+          if(op != null) {
+              batchOperations.add(buildBatchOperation(jsonObject));
+          }
         } else{
           resultsArray = jsonObject.getJSONObject("results").getJSONArray("quote");
 
           if (resultsArray != null && resultsArray.length() != 0){
             for (int i = 0; i < resultsArray.length(); i++){
               jsonObject = resultsArray.getJSONObject(i);
-              batchOperations.add(buildBatchOperation(jsonObject));
+              ContentProviderOperation op = buildBatchOperation(jsonObject);
+              if(op != null) {
+                  batchOperations.add(buildBatchOperation(jsonObject));
+              }
             }
           }
         }
@@ -49,7 +57,7 @@ public class Utils {
   }
 
   public static String truncateBidPrice(String bidPrice){
-    bidPrice = String.format("%.2f", Float.parseFloat(bidPrice));
+    bidPrice = String.format(Locale.getDefault(), "%.2f", Float.parseFloat(bidPrice));
     return bidPrice;
   }
 
@@ -71,9 +79,10 @@ public class Utils {
   }
 
   public static ContentProviderOperation buildBatchOperation(JSONObject jsonObject){
-    ContentProviderOperation.Builder builder = ContentProviderOperation.newInsert(
-        QuoteProvider.Quotes.CONTENT_URI);
+    ContentProviderOperation.Builder builder;
     try {
+      builder = ContentProviderOperation.newInsert(
+              QuoteProvider.Quotes.CONTENT_URI);
       String change = jsonObject.getString("Change");
       builder.withValue(QuoteColumns.SYMBOL, jsonObject.getString("symbol"));
       builder.withValue(QuoteColumns.BIDPRICE, truncateBidPrice(jsonObject.getString("Bid")));
@@ -87,9 +96,10 @@ public class Utils {
         builder.withValue(QuoteColumns.ISUP, 1);
       }
 
-    } catch (JSONException e){
+    } catch (Exception e){
+      builder = null;
       e.printStackTrace();
     }
-    return builder.build();
+    return builder != null ? builder.build() : null;
   }
 }
