@@ -6,8 +6,6 @@ import android.content.CursorLoader;
 import android.content.Intent;
 import android.content.Loader;
 import android.database.Cursor;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
@@ -36,6 +34,8 @@ import com.sam_chordas.android.stockhawk.service.StockIntentService;
 import com.sam_chordas.android.stockhawk.service.StockTaskService;
 import com.sam_chordas.android.stockhawk.touch_helper.SimpleItemTouchHelperCallback;
 
+import mehdi.sakout.dynamicbox.DynamicBox;
+
 public class MyStocksActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<Cursor> {
 
     /**
@@ -43,7 +43,6 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
      */
 
     private static final int CURSOR_LOADER_ID = 0;
-    boolean isConnected;
     /**
      * Used to store the last screen title. For use in {@link #restoreActionBar()}.
      */
@@ -53,31 +52,24 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
     private QuoteCursorAdapter mCursorAdapter;
     private Context mContext;
     private Cursor mCursor;
+    private DynamicBox box;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mContext = this;
-        ConnectivityManager cm =
-                (ConnectivityManager) mContext.getSystemService(Context.CONNECTIVITY_SERVICE);
-
-        NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
-        isConnected = activeNetwork != null &&
-                activeNetwork.isConnectedOrConnecting();
         setContentView(R.layout.activity_my_stocks);
-        // The intent service is for executing immediate pulls from the Yahoo API
-        // GCMTaskService can only schedule tasks, they cannot execute immediately
-        mServiceIntent = new Intent(this, StockIntentService.class);
-        if (savedInstanceState == null) {
-            // Run the initialize task service so that some stocks appear upon an empty database
-            mServiceIntent.putExtra("tag", "init");
-            if (isConnected) {
-                startService(mServiceIntent);
-            } else {
-                networkToast();
-            }
-        }
         RecyclerView recyclerView = (RecyclerView) findViewById(R.id.recycler_view);
+        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+
+        box = new DynamicBox(this, recyclerView);
+        box.setClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                init(null);
+            }
+        });
+
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         getLoaderManager().initLoader(CURSOR_LOADER_ID, null, this);
 
@@ -92,13 +84,11 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
                 }));
         recyclerView.setAdapter(mCursorAdapter);
 
-
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.attachToRecyclerView(recyclerView);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (isConnected) {
+                if (Util.isConnected(MyStocksActivity.this)) {
                     new MaterialDialog.Builder(mContext).title(R.string.symbol_search)
                             .content(R.string.content_test)
                             .inputType(InputType.TYPE_CLASS_TEXT)
@@ -126,8 +116,6 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
                                 }
                             })
                             .show();
-                } else {
-                    networkToast();
                 }
 
             }
@@ -138,25 +126,7 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
         mItemTouchHelper.attachToRecyclerView(recyclerView);
 
         mTitle = getTitle();
-        if (isConnected) {
-            long period = 3600L;
-            long flex = 10L;
-            String periodicTag = "periodic";
-
-            // create a periodic task to pull stocks once every hour after the app has been opened. This
-            // is so Widget data stays up to date.
-            PeriodicTask periodicTask = new PeriodicTask.Builder()
-                    .setService(StockTaskService.class)
-                    .setPeriod(period)
-                    .setFlex(flex)
-                    .setTag(periodicTag)
-                    .setRequiredNetwork(Task.NETWORK_STATE_CONNECTED)
-                    .setRequiresCharging(false)
-                    .build();
-            // Schedule task with tag "periodic." This ensure that only the stocks present in the DB
-            // are updated.
-            GcmNetworkManager.getInstance(this).schedule(periodicTask);
-        }
+        init(savedInstanceState);
     }
 
 
@@ -166,8 +136,49 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
         getLoaderManager().restartLoader(CURSOR_LOADER_ID, null, this);
     }
 
-    public void networkToast() {
-        Toast.makeText(mContext, getString(R.string.network_toast), Toast.LENGTH_SHORT).show();
+    private void init(Bundle savedInstanceState){
+        // The intent service is for executing immediate pulls from the Yahoo API
+        // GCMTaskService can only schedule tasks, they cannot execute immediately
+        mServiceIntent = new Intent(this, StockIntentService.class);
+        if (savedInstanceState == null) {
+            // Run the initialize task service so that some stocks appear upon an empty database
+            mServiceIntent.putExtra("tag", "init");
+            if (Util.isConnected(this)) {
+                startService(mServiceIntent);
+                scheduleTask();
+                offlineMode(false);
+            } else {
+                offlineMode(true);
+            }
+        }
+    }
+
+    private void scheduleTask(){
+        long period = 3600L;
+        long flex = 10L;
+        String periodicTag = "periodic";
+
+        // create a periodic task to pull stocks once every hour after the app has been opened. This
+        // is so Widget data stays up to date.
+        PeriodicTask periodicTask = new PeriodicTask.Builder()
+                .setService(StockTaskService.class)
+                .setPeriod(period)
+                .setFlex(flex)
+                .setTag(periodicTag)
+                .setRequiredNetwork(Task.NETWORK_STATE_CONNECTED)
+                .setRequiresCharging(false)
+                .build();
+        // Schedule task with tag "periodic." This ensure that only the stocks present in the DB
+        // are updated.
+        GcmNetworkManager.getInstance(this).schedule(periodicTask);
+    }
+
+    private void offlineMode(boolean enabled) {
+        if(enabled) {
+            box.showInternetOffLayout();
+        } else {
+            box.hideAll();
+        }
     }
 
     public void restoreActionBar() {
