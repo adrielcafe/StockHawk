@@ -17,6 +17,7 @@ import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.afollestad.materialdialogs.MaterialDialog;
@@ -78,8 +79,8 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
                 new RecyclerViewItemClickListener.OnItemClickListener() {
                     @Override
                     public void onItemClick(View v, int position) {
-                        //TODO:
-                        // do something on item click
+                        TextView symbolView = (TextView) v.findViewById(R.id.stock_symbol);
+                        showStockHistory(symbolView.getText().toString());
                     }
                 }));
         recyclerView.setAdapter(mCursorAdapter);
@@ -171,6 +172,14 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
         // Schedule task with tag "periodic." This ensure that only the stocks present in the DB
         // are updated.
         GcmNetworkManager.getInstance(this).schedule(periodicTask);
+    }
+
+    private void showStockHistory(String symbol){
+        if(Util.isConnected(this)) {
+            Intent intent = new Intent(MyStocksActivity.this, ChartActivity.class);
+            intent.putExtra(ChartActivity.EXTRA_SYMBOL, symbol);
+            startActivity(intent);
+        }
     }
 
     private void offlineMode(boolean enabled) {
