@@ -6,6 +6,7 @@ import android.content.CursorLoader;
 import android.content.Intent;
 import android.content.Loader;
 import android.database.Cursor;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
@@ -96,24 +97,7 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
                             .input(R.string.input_hint, R.string.input_prefill, new MaterialDialog.InputCallback() {
                                 @Override
                                 public void onInput(MaterialDialog dialog, CharSequence input) {
-                                    // On FAB click, receive user input. Make sure the stock doesn't already exist
-                                    // in the DB and proceed accordingly
-                                    Cursor c = getContentResolver().query(QuoteProvider.Quotes.CONTENT_URI,
-                                            new String[]{QuoteColumns.SYMBOL}, QuoteColumns.SYMBOL + "= ?",
-                                            new String[]{input.toString()}, null);
-                                    if (c != null && c.getCount() != 0) {
-                                        Toast toast =
-                                                Toast.makeText(MyStocksActivity.this, "This stock is already saved!",
-                                                        Toast.LENGTH_LONG);
-                                        toast.setGravity(Gravity.CENTER, Gravity.CENTER, 0);
-                                        toast.show();
-                                        return;
-                                    } else {
-                                        // Add the stock to DB
-                                        mServiceIntent.putExtra("tag", "add");
-                                        mServiceIntent.putExtra("symbol", input.toString());
-                                        startService(mServiceIntent);
-                                    }
+                                    addNewStock(input.toString());
                                 }
                             })
                             .show();
@@ -180,6 +164,36 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
             intent.putExtra(ChartActivity.EXTRA_SYMBOL, symbol);
             startActivity(intent);
         }
+    }
+
+    private void addNewStock(final String stock){
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                // On FAB click, receive user input. Make sure the stock doesn't already exist
+                // in the DB and proceed accordingly
+                Cursor c = getContentResolver().query(QuoteProvider.Quotes.CONTENT_URI,
+                        new String[]{QuoteColumns.SYMBOL}, QuoteColumns.SYMBOL + "= ?",
+                        new String[]{stock}, null);
+                if (c != null && c.getCount() != 0) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast toast = Toast.makeText(MyStocksActivity.this, R.string.stock_already_saved,
+                                            Toast.LENGTH_LONG);
+                            toast.setGravity(Gravity.CENTER, Gravity.CENTER, 0);
+                            toast.show();
+                        }
+                    });
+                    return;
+                } else {
+                    // Add the stock to DB
+                    mServiceIntent.putExtra("tag", "add");
+                    mServiceIntent.putExtra("symbol", stock);
+                    startService(mServiceIntent);
+                }
+            }
+        });
     }
 
     private void offlineMode(boolean enabled) {

@@ -7,6 +7,7 @@
   <string name="input_prefill"></string>
   <string name="network_toast">Uh-oh! This app requires an internet connection</string>
   <string name="add_stock">Add stock</string>
-  <string name="select_two_differet_dates">Select at least two different dates</string>
+  <string name="select_two_different_dates">Select at least two different dates</string>
   <string name="select_date_range">Select a date range</string>
+  <string name="stock_already_saved">This stock is already saved!</string>
 </resources>

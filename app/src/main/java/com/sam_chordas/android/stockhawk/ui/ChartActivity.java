@@ -55,7 +55,7 @@ public class ChartActivity extends AppCompatActivity {
             dateRangeView.setText(getPrettyDate(selectedDate.getStartDate().getTime()) + "  >  " + getPrettyDate(selectedDate.getEndDate().getTime()));
             datePicker.dismiss();
             if(startDate.equals(endDate)){
-                Toast.makeText(ChartActivity.this, R.string.select_two_differet_dates, Toast.LENGTH_SHORT).show();
+                Toast.makeText(ChartActivity.this, R.string.select_two_different_dates, Toast.LENGTH_SHORT).show();
             } else {
                 loadQuoteAndChart();
             }
